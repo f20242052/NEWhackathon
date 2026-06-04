@@ -613,7 +613,7 @@ def route_query(query: str, lang: str = "en") -> list[dict]:
         if not dept: # skip if department info is missing
             continue
 
-
+            import json
         rows.append({
             "id": c["id"],
             "dept_id": c["dept_id"],
