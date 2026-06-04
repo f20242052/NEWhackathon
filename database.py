@@ -610,10 +610,9 @@ def route_query(query: str, lang: str = "en") -> list[dict]:
 
     for c in complaints:
         dept = dept_lookup.get(c["dept_id"])
-        if not dept: # skip if department info is missing
+        if not dept:
             continue
 
-            import json
         rows.append({
             "id": c["id"],
             "dept_id": c["dept_id"],
@@ -665,7 +664,7 @@ def route_query(query: str, lang: str = "en") -> list[dict]:
                 "dept_id": row["dept_id"],
                 "category_en": row["category_en"],
                 "category_local": row["category_local"],
-                "required_fields": row["required_fields"],
+                "required_fields": row["required_fields"] if isinstance(row["required_fields"], list) else json.loads(row["required_fields"]) if isinstance(row["required_fields"], str) else [],
                 "dept_name_en": row["name_en"],
                 "dept_name_te": row["name_te"],
                 "dept_name_hi": row["name_hi"],
