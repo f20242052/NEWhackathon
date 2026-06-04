@@ -1,0 +1,11 @@
+[project]
+name = "telangana-grievance-router"
+version = "0.1.0"
+description = "Telangana Citizen Grievance Routing Application"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.35.0",
+]
+
+[tool.uv]
+dev-dependencies = []
