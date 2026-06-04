@@ -388,12 +388,9 @@ _COMPLAINTS = [
 # Public API
 # ---------------------------------------------------------------------------
 
-def init_db() -> None:
-    """Create tables and seed data on first run. Safe to call every startup."""
-    with _connect() as conn:
-        conn.executescript(_DDL)
-        if not _already_seeded(conn):
-            _seed(conn)
+def init_db():
+    """Supabase tables are managed externally."""
+    pass
 
 
 def _seed(conn: sqlite3.Connection) -> None:
@@ -617,20 +614,20 @@ def route_query(query: str, lang: str = "en") -> list[dict]:
             continue
 
 
-    rows.append({
-        "id": c["id"],
-        "dept_id": c["dept_id"],
-        "category_en": c["category_en"],
-        "category_local": c[cat_col],
-        "keywords": c[kw_col],
-        "required_fields": c["required_fields"],
-        "name_en": dept["name_en"],
-        "name_te": dept["name_te"],
-        "name_hi": dept["name_hi"],
-        "helpline": dept["helpline"],
-        "portal_url": dept["portal_url"],
-        "icon": dept["icon"],
-    })
+        rows.append({
+            "id": c["id"],
+            "dept_id": c["dept_id"],
+            "category_en": c["category_en"],
+            "category_local": c[cat_col],
+            "keywords": c[kw_col],
+            "required_fields": c["required_fields"],
+            "name_en": dept["name_en"],
+            "name_te": dept["name_te"],
+            "name_hi": dept["name_hi"],
+            "helpline": dept["helpline"],
+            "portal_url": dept["portal_url"],
+            "icon": dept["icon"],
+        })
 
     results = []
     for row in rows:
@@ -686,42 +683,65 @@ def save_grievance(
     category_en: str,
     fields: dict,
     language: str,
-) -> int:
-    """Insert a grievance row. Returns the new row id."""
-    with _connect() as conn:
-        cur = conn.execute(
-            """INSERT INTO grievances (dept_id, category_en, fields_json, language)
-               VALUES (?, ?, ?, ?)""",
-            (dept_id, category_en, json.dumps(fields, ensure_ascii=False), language),
-        )
-        return cur.lastrowid
+):
+    result = (
+        supabase.table("grievances")
+        .insert({
+            "dept_id": dept_id,
+            "category_en": category_en,
+            "fields_json": json.dumps(fields, ensure_ascii=False),
+            "language": language,
+        })
+        .execute()
+    )
+
+    return result.data[0]["id"]
 
 
-def get_grievance_history(limit: int = 50) -> list[dict]:
-    """Return the most recent grievances as plain dicts."""
-    with _connect() as conn:
-        rows = conn.execute(
-            """SELECT g.id, g.dept_id, d.name_en AS department,
-                      g.category_en, g.language, g.created_at,
-                      g.fields_json
-               FROM grievances g
-               LEFT JOIN departments d ON d.id = g.dept_id
-               ORDER BY g.id DESC
-               LIMIT ?""",
-            (limit,),
-        ).fetchall()
+def get_grievance_history(limit=50):
+
+    grievances = (
+        supabase.table("grievances")
+        .select("*")
+        .order("id", desc=True)
+        .limit(limit)
+        .execute()
+        .data
+    )
+
+    departments = (
+        supabase.table("departments")
+        .select("*")
+        .execute()
+        .data
+    )
+
+    dept_lookup = {
+        d["id"]: d["name_en"]
+        for d in departments
+    }
 
     history = []
-    for row in rows:
+
+    for row in grievances:
         fields = json.loads(row["fields_json"])
+
         history.append({
             "ID": row["id"],
             "Submitted": row["created_at"],
-            "Department": row["department"] or row["dept_id"],
+            "Department": dept_lookup.get(
+                row["dept_id"],
+                row["dept_id"]
+            ),
             "Category": row["category_en"],
             "Language": row["language"].upper(),
-            "Details": ", ".join(f"{k}: {v}" for k, v in fields.items() if v),
+            "Details": ", ".join(
+                f"{k}: {v}"
+                for k, v in fields.items()
+                if v
+            ),
         })
+
     return history
 
 
